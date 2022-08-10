@@ -164,6 +164,9 @@ def generate_hint(
 
         if len(yellowWords):
 
+            # TODO: issue with positional indexers when there is 1
+            # result
+
             print(yellowWords.size)
             if yellowWords.size == 1:
                 expandedWordListDF = expandedWordListDF.iloc[
