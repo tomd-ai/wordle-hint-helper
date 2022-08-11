@@ -1,7 +1,8 @@
 import streamlit as st
 import pandas as pd
-from packages.play import show_play
-from packages.hint import show_hint
+from tabs.play import show_play
+from tabs.hint import show_hint
+from tabs.solve import show_solve
 
 wordList = pd.read_csv("wordList.csv")
 
@@ -22,4 +23,5 @@ if __name__ == "__main__":
     with hint:
         show_hint(wordList)
 
-    
+    with solve:
+        show_solve(wordList)

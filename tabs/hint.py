@@ -7,13 +7,6 @@ import pandas as pd
 # initialisation
 
 def gen_generic_custom_css(background):
-    
-    # if background == "green":
-    #     background = "rgb(132, 222, 71, 0.6)"
-    # if background == "orange":
-    #     background = "rgb(255, 135, 0, 0.6)"
-    # if background == "grey":
-    #     background = "rgb(210, 210, 210, 0.6)"
 
     customCss = {
         '.ag-header': {
@@ -24,28 +17,10 @@ def gen_generic_custom_css(background):
             'border': 'solid 1px black !important',
             "background-color": f"{background} !important",
             "opacity": 0.6,
-            "color": "black !important"
+            "color": "white !important"
         }
     }
     return customCss
-
-def add_solid_style(df, colour, customStyle):
-    # print("add row")
-    for rowInd, row in df.iterrows():
-        for colInd, val in enumerate(row.tolist()):
-            if val:
-                # print(val)
-                customStyle[f'.ag-row[row-id="{rowInd}"] .ag-cell[col-id="{colInd}"]'] = {
-                    "background-color": f"{colour} !important",
-                    "color": "white !important",
-                }
-
-                # print({
-                #     "background-color": f"{colour} !important",
-                #     "color": "white !important",
-                # })
-    # print(json.dumps(customStyle, indent=4))
-    return customStyle
 
 
 def gen_blank_df(colour):
@@ -59,6 +34,7 @@ def gen_blank_df(colour):
         blankDF = pd.DataFrame(
             {
                 "0": [""] * 5,
+                "1": [""] * 5
             }
         )
     if colour == "green_letter_hint":
@@ -71,6 +47,12 @@ def gen_blank_df(colour):
                 "4": [""] * 5
             }
         )
+    if colour == "most_likely_words_hint":
+        blankDF = blankDF = pd.DataFrame(
+            {
+                "0": [""] * 5,
+            }
+        )
     blankDF = blankDF.T
     blankDF.columns = [str(x) for x in blankDF.columns]
     return blankDF
@@ -81,14 +63,16 @@ def reset_hint():
     st.session_state["hint_grey_letters_df"] = gen_blank_df("grey")
 
     st.session_state["hint_green_letter_probability"] = gen_blank_df("green_letter_hint")
+    st.session_state["hint_most_likely_words"] = gen_blank_df("most_likely_words_hint")
+
 
 # hint algorithm
 
 def generate_hint(
-    greenLettersDF,
-    yellowLettersDF,
+    greenLettersDF: pd.DataFrame,
+    yellowLettersDF: pd.DataFrame,
     greyLettersDF: pd.DataFrame,
-    wordListDF):
+    wordListDF: pd.DataFrame):
     # firstly, wordle words rarely end in s
     wordListDF = wordListDF.loc[~wordListDF["word"].str.endswith("S"), :]
 
@@ -108,8 +92,6 @@ def generate_hint(
             ~wordListDF["word"].str.contains(invalidLetterRegex),
             :
         ]
-
-    # print(len(wordListDF))
 
     # now convert the wordList into a matrix of letters
 
@@ -156,6 +138,7 @@ def generate_hint(
             lambda x: "".join([x[y] for y in missingLetterIndex]),
             axis=1
         )
+
         # print(yellowWords)
 
         yellowWords = yellowWords[
@@ -163,40 +146,29 @@ def generate_hint(
         ].index
 
         if len(yellowWords):
-
-            # TODO: issue with positional indexers when there is 1
-            # result
-
-            print(yellowWords.size)
+            
+            # if theres one result it does weird things
+            # to positional indexing
             if yellowWords.size == 1:
-                expandedWordListDF = expandedWordListDF.iloc[
-                    [yellowWords[0]],
-                    :
+                expandedWordListDF = expandedWordListDF.loc[
+                    yellowWords
                 ]
             else:
                 expandedWordListDF = expandedWordListDF.iloc[
-                    yellowWords[0],
+                    yellowWords,
                     :
                 ]
 
             for colInd, colVal in yellowLetterList:
-                print(colInd)
-
                 expandedWordListDF = expandedWordListDF.loc[
                     ~(expandedWordListDF[colInd] == colVal),
                     :
                 ]
-            # except IndexError:
-            #     pass
 
-
-        # expandedWordListDF = expandedWordListDF.loc[
-        #     expandedWordListDF[greenLetter[0]] == greenLetter[1],
-        #     :
-        # ]
-
-    # print(expandedWordListDF)
+    allLikely = {}
     mostLikely = {}
+    mostLikelyWords = {}
+
     if not expandedWordListDF.empty:
 
         expandedWordListDF["expandedWord"] = expandedWordListDF.agg(
@@ -204,10 +176,13 @@ def generate_hint(
             axis = 1
         )
         for col in range(0, 5):
-            print(col)
+            # print(col)
             if col in missingLetterIndex:
                 colCounts = expandedWordListDF[col].value_counts()
+
                 mostLikely.setdefault(col, [])
+                allLikely.setdefault(col, [])
+
                 maxlen = colCounts.size if colCounts.size < 5 else 5
                 
                 for ind in range(0, maxlen):
@@ -215,16 +190,25 @@ def generate_hint(
                     mostLikely[col].append(
                         f"{colCounts.head(maxlen).index[ind]}, { round((colCounts.head(maxlen)[ind] / colCounts.sum())* 100) }%"
                     )
-                
+
+                allLikely[col] = [
+                    {
+                        "letter": letter,
+                        "count": count
+                    } for letter, count in zip(colCounts.index, colCounts)
+                ]
+
+
                 if maxlen < 5:
                     mostLikely[col].extend([""] * (5-maxlen))
-                print(mostLikely)
+                # print(mostLikely)
             else:
                 mostLikely.setdefault(col, [])
                 mostLikely[col].extend([""] * 5)
 
-    return mostLikely
+        mostLikelyWords = expandedWordListDF["expandedWord"]
 
+    return mostLikely, mostLikelyWords, allLikely
 
 # streamlit display
 
@@ -248,18 +232,9 @@ def show_hint(wordList):
 
     greenCol1, greenCol2 = st.columns(2)
     greenCol1.write("Correctly placed letters:")
-    # clearGreen = greenCol2.button("Reset", key="clearGreen")
-    # if clearGreen:
-    #     st.session_state["hint_correct_letters_row"] = gen_blank_df("green")
-    #     st.experimental_rerun()
 
     greenCss = gen_generic_custom_css("green")
-    greenCss = add_solid_style(
-        df=st.session_state["hint_correct_letters_row"],
-        colour="green",
-        customStyle=greenCss
-    )
-    
+
     green_df = AgGrid(
         st.session_state["hint_correct_letters_row"],
         editable=True,
@@ -267,7 +242,6 @@ def show_hint(wordList):
         theme="material",
         custom_css=greenCss,
         height=75,
-        # width=200,
         key="green",
         reload_data=True,
         update_mode='model_changed'
@@ -278,17 +252,8 @@ def show_hint(wordList):
 
     greenCol3, greenCol4 = st.columns(2)
     greenCol3.write("Correct letters, in wrong location:")
-    # clearYellow = greenCol4.button("Reset", key="clearYellow")
-    # if clearYellow:
-    #     st.session_state["hint_yellow_letters_row"] = gen_blank_df("yellow")
-    #     st.experimental_rerun()
 
     yellowCss = gen_generic_custom_css("orange")
-    yellowCss = add_solid_style(
-        df=st.session_state["hint_yellow_letters_row"],
-        colour="orange",
-        customStyle=yellowCss
-    )
 
     yellow_df = AgGrid(
         st.session_state["hint_yellow_letters_row"],
@@ -297,7 +262,6 @@ def show_hint(wordList):
         theme="material",
         custom_css=yellowCss,
         height=75,
-        # width=200,
         key="yellow",
         reload_data=True,
         update_mode='model_changed'
@@ -308,17 +272,8 @@ def show_hint(wordList):
 
     greenCol5, greenCol6 = st.columns(2)
     greenCol5.write("Incorrect letters")
-    # clearGrey = greenCol6.button("Reset", key="clearGrey")
-    # if clearGrey:
-    #     st.session_state["hint_grey_letters_df"] = gen_blank_df(colour="grey")
-    #     st.experimental_rerun()
 
     greyCss = gen_generic_custom_css("grey")
-    greyCss = add_solid_style(
-        df=st.session_state["hint_grey_letters_df"],
-        colour="grey",
-        customStyle=greyCss
-    )
 
     grey_df = AgGrid(
         st.session_state["hint_grey_letters_df"],
@@ -326,7 +281,7 @@ def show_hint(wordList):
         fit_columns_on_grid_load=True,
         theme="material",
         custom_css=greyCss,
-        height=75,
+        height=100,
         # width=200,
         key="grey",
         reload_data=True,
@@ -337,39 +292,44 @@ def show_hint(wordList):
     new_grey_df = new_grey_df.apply(lambda x: x.str.upper())
 
     if not st.session_state["hint_correct_letters_row"].equals(new_green_df):
-        # print(st.session_state["hint_correct_letters_row"])
         st.session_state["hint_correct_letters_row"] = new_green_df
         st.experimental_rerun()
     if not st.session_state["hint_yellow_letters_row"].equals(new_yellow_df):
-        # print("update yellow")
-        # print(st.session_state["hint_yellow_letters_row"])
         st.session_state["hint_yellow_letters_row"] = new_yellow_df
         st.experimental_rerun()
     if not st.session_state["hint_grey_letters_df"].equals(new_grey_df):
-        # print(st.session_state["hint_grey_letters_df"])
         st.session_state["hint_grey_letters_df"] = new_grey_df
         st.experimental_rerun()
 
-    # hintButton = st.button("Get hint")
+    # the script is very quick, we don't need a submit.
 
-    # if hintButton:
-    mostLikely = generate_hint(
+    # the third argument is used in solve
+
+    # TODO: A nice improvement would be to rank the returned
+    # most likely words by the amount of information they reveal.
+
+    mostLikelyLetters, mostLikelyWords, _ = generate_hint(
         greenLettersDF=st.session_state["hint_correct_letters_row"],
         yellowLettersDF=st.session_state["hint_yellow_letters_row"],
         greyLettersDF=st.session_state["hint_grey_letters_df"],
         wordListDF=wordList
     )
 
-    mostLikelyDF = pd.DataFrame(
-        mostLikely
+    mostLikelyLettersDF = pd.DataFrame(
+        mostLikelyLetters
     )
 
-    if not mostLikelyDF.empty:
+    mostLikelyWordsDF = pd.DataFrame(
+        mostLikelyWords
+    )
 
-        mostLikelyDF.columns = [str(x) for x in mostLikelyDF.columns]
+    if not mostLikelyLettersDF.empty:
 
-        st.session_state["green_letter_hint"] = mostLikelyDF
+        mostLikelyLettersDF.columns = [str(x) for x in mostLikelyLettersDF.columns]
+
+        st.session_state["green_letter_hint"] = mostLikelyLettersDF
         st.write("Top 5 most likely letters for remaining spaces")
+
         most_likely_df = AgGrid(
             st.session_state["green_letter_hint"],
             editable=False,
@@ -378,9 +338,28 @@ def show_hint(wordList):
             custom_css=greenCss,
             height=250,
             # width=200,
-            key="hint_df",
+            key="hint_letters_df",
             reload_data=True,
             update_mode='model_changed'
         )
+
+        mostLikelyWordsDF.columns = [str(x) for x in mostLikelyWordsDF.columns]
+
+        st.session_state["hint_most_likely_words"] = mostLikelyWordsDF
+        st.write("Some words examples to try that use the letters:")
+
+        most_likely_words_df = AgGrid(
+            st.session_state["hint_most_likely_words"],
+            editable=False,
+            fit_columns_on_grid_load=True,
+            theme="material",
+            custom_css=greenCss,
+            height=250,
+            # width=200,
+            key="hint_words_df",
+            reload_data=True,
+            update_mode='model_changed'
+        )
+
     else:
         st.write("Sorry, no words found, check the inputs")
