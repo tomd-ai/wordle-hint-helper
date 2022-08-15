@@ -43,7 +43,8 @@ def apply_solve_css(grid, wordCSSDF=None):
                         "color": "white !important"
                     }
         st.session_state["wordCSS"] = customCss
-    else:
+
+    if grid == "letters":
         greenCols = set()
 
         for wordCSS in st.session_state["wordCSS"]:
@@ -61,19 +62,6 @@ def apply_solve_css(grid, wordCSSDF=None):
                 :,
                 str(greenCol)
             ] = ""
-
-
-        # for rowInd, row in wordCSSDF.iterrows():
-        #     for colInd, val in enumerate(row.tolist()):
-        #         if val == "GREEN":
-        #             customCss[f'.ag-cell[col-id="{colInd}"]'] = {
-        #                 "background-color": "green !important",
-        #                 "color": "white !important"
-        #             }
-        #             st.session_state["solve_letter_df"].loc[
-        #                 :,
-        #                 str(colInd)
-        #             ] = ""
 
         st.session_state["letterCSS"] = customCss
 
@@ -104,6 +92,10 @@ def reset_solve():
     st.session_state["not_found"] = False
     st.session_state["not_selected"] = False
     st.session_state["wordbox"] = ""
+    st.session_state["wordCSS"] = apply_solve_css(None)
+    st.session_state["letterCSS"] = apply_solve_css(None)
+    st.session_state["curGuess"] = ""
+    st.session_state["nextGuess"] = ""
 
 
 # TODO: algorithm for next word to guess:
@@ -284,8 +276,10 @@ def next_word_guess(likelyWords, likelyLetters):
         lambda x: scoreRow(x),
         axis=1
     )
+    print(likelyWords)
+    print(expandedWordListDF["score"])
 
-    mostLikelyWord = likelyWords.loc[
+    mostLikelyWord = likelyWords.iloc[
         expandedWordListDF["score"].argmax()
     ]
 
@@ -464,7 +458,7 @@ def show_solve(wordList):
 
         change = solveCol6.selectbox(
             label="Click to select a word",
-            options=[''] + wordList["word"].tolist()
+            options=[''] + wordList.loc[~wordList["word"].str.endswith("S"), "word"].tolist()
         )
 
         if st.session_state.get("not_found"):
@@ -499,7 +493,7 @@ def show_solve(wordList):
         
         solveRow = st.button("Solve next row")
 
-        if solveRow and not st.session_state["solve_game_ended"]:
+        if solveRow:
             st.session_state["setNext"] = True
 
             nextWordIndex = st.session_state["solve_cur_guess_df"]["0"].tolist().index("")
@@ -572,6 +566,9 @@ def show_solve(wordList):
                 "letters"
             )
 
+            # st.session_state["curGuess"] = curGuess
+            # st.session_state["nextGuess"] = nextWord
+
             st.experimental_rerun()
 
 
@@ -582,6 +579,13 @@ def show_solve(wordList):
         # st.write(st.session_state["wordCSS"])
 
         # wordCSS = apply_solve_css("words", pd.DataFrame())
+
+        # if st.session_state.get("curGuess"):
+        #     st.write(f"Current guess: {st.session_state['curGuess']}")
+
+        # if st.session_state.get("nextGuess"):
+        #     st.write(f"Current guess: {st.session_state['nextGuess']}")
+
 
         if not st.session_state.get("wordCSS"):
             st.session_state["wordCSS"] = apply_solve_css("words", pd.DataFrame())
@@ -609,23 +613,61 @@ def show_solve(wordList):
         # create the green, yellow, grey letter df
         # needed by the generate_hint function
 
-        st.write("Likely letter, (% times letter appears in remaining words):")
+        gameEnded = False
+        gameWon = False
+        gameLost = False
 
-        likely_letters = AgGrid(
-            st.session_state["solve_letter_df"],
-            editable=False,
-            fit_columns_on_grid_load=True,
-            theme="material",
-            custom_css=apply_solve_css("letters"),
-            height=300,
-            width=200,
-            reload_data=True,
-            update_mode='model_changed',
-            key="letter_grid"
-        )
+        rowsWithVals = []
+
+        for ind, row in st.session_state["solve_cur_guess_df"].iterrows():
+            if "".join(row.tolist()) == st.session_state["solve_word_to_guess"]:
+                gameEnded = True
+                gameWon = True
+            if len("".join(row.tolist())) > 1:
+                rowsWithVals.append(ind)
         
+        if len(rowsWithVals) == 6:
+            if not gameEnded:
+                gameEnded = True
+                gameLost = True
 
+        if not gameEnded:
+            if not st.session_state.get("solve_letter_df").equals(gen_blank_df_solve("letterGrid")):
+                st.write("Likely letter, (% times letter appears in remaining words):")
+                likely_letters = AgGrid(
+                    st.session_state["solve_letter_df"],
+                    editable=False,
+                    fit_columns_on_grid_load=True,
+                    theme="material",
+                    custom_css=st.session_state["letterCSS"],
+                    height=300,
+                    width=200,
+                    reload_data=True,
+                    update_mode='model_changed',
+                    key="letter_grid"
+                )
+        else:
+            if gameWon:
+                st.write(
+                    f"The algorithm found '{st.session_state['solve_word_to_guess']}' in {len(rowsWithVals)} turns!"
+                )
+                tryAgain = st.button("Play again?")
 
+                if tryAgain:
+                    reset_solve()
+                    st.experimental_rerun()
+            if gameLost:
+                st.write(
+                    f"'{st.session_state['solve_word_to_guess']}' was not found - guess the algorithm needs more work!"
+                )
+                tryAgain = st.button("Play again?")
+                if tryAgain:
+                    reset_solve()
+                    st.experimental_rerun()
+
+                if tryAgain:
+                    reset_solve()
+                    st.experimental_rerun()
 
 
 
