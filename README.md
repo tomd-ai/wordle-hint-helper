@@ -3,7 +3,7 @@ A demo project to show off control flow features in streamlit.
 
 (PS. I used an old dictionary file I had on my hard drive, apologies in advance if some of the words are a little archaic - there's quite a few...)
 
-## A fun version of the game in streamlit.
+## A fun version of the game, developed in streamlit
 
 In the play tab, enter a word in the box to see how many times you have to guess before you find the word!
 
