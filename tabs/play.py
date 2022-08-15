@@ -45,7 +45,7 @@ def show_play(wordList):
         st.write("(If there is a warning message about ag-grid, it should reload after a couple of seconds)")
         reset_game(wordList)
 
-    print(st.session_state["word"])
+    # print(st.session_state["word"])
 
     if reset:
         reset_game(wordList)

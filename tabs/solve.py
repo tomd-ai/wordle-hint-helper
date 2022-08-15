@@ -1,10 +1,8 @@
-import json
 import re
 from typing import Dict, List
 import pandas as pd
 from st_aggrid import AgGrid
 import streamlit as st
-from tabs.hint import generate_hint
 
 def apply_solve_css(grid, wordCSSDF=None):
 
@@ -276,8 +274,8 @@ def next_word_guess(likelyWords, likelyLetters):
         lambda x: scoreRow(x),
         axis=1
     )
-    print(likelyWords)
-    print(expandedWordListDF["score"])
+    # print(likelyWords)
+    # print(expandedWordListDF["score"])
 
     mostLikelyWord = likelyWords.iloc[
         expandedWordListDF["score"].argmax()
@@ -498,8 +496,7 @@ def show_solve(wordList):
 
             nextWordIndex = st.session_state["solve_cur_guess_df"]["0"].tolist().index("")
 
-
-            print("next word index ", nextWordIndex)
+            # print("next word index ", nextWordIndex)
 
             curGuess, allLikelyLetters, curCSS, wordCSSDF = get_next_word(
                 wordList,
@@ -510,9 +507,7 @@ def show_solve(wordList):
             if curGuess == st.session_state["solve_word_to_guess"]:
                 st.session_state["solve_game_ended"] = True
                 st.session_state["solve_game_found"] = True
-            
-            
-            
+
             if curGuess:
                 st.write(f"Current word: {curGuess}")
 
@@ -522,20 +517,9 @@ def show_solve(wordList):
 
             st.write(f"Next word: {nextWord}")
 
-            # print(wordCSS)
-
-            print(st.session_state["wordCSS"])
-            print(st.session_state["solve_cur_guess_df"])
-
-            print("curCSS")
-            print(curCSS)
-            print("session state")
-            print(st.session_state["wordCSS"])
-
             curCSS = st.session_state["wordCSS"]
 
             if curCSS != st.session_state["wordCSS"]:
-                print("NO!")
                 st.session_state["wordCSS"] = dict(curCSS)
                 st.session_state["setNext"] = False
                 st.experimental_rerun()
@@ -565,27 +549,10 @@ def show_solve(wordList):
             st.session_state["solve_letter_css"] = apply_solve_css(
                 "letters"
             )
-
+            # TODO: work out why writing the words breaks the CSS
             # st.session_state["curGuess"] = curGuess
             # st.session_state["nextGuess"] = nextWord
-
             st.experimental_rerun()
-
-
-        
-        # if curCSS != st.session_state["wordCSS"]:
-        #     print("still NO!")
-
-        # st.write(st.session_state["wordCSS"])
-
-        # wordCSS = apply_solve_css("words", pd.DataFrame())
-
-        # if st.session_state.get("curGuess"):
-        #     st.write(f"Current guess: {st.session_state['curGuess']}")
-
-        # if st.session_state.get("nextGuess"):
-        #     st.write(f"Current guess: {st.session_state['nextGuess']}")
-
 
         if not st.session_state.get("wordCSS"):
             st.session_state["wordCSS"] = apply_solve_css("words", pd.DataFrame())
@@ -632,6 +599,7 @@ def show_solve(wordList):
                 gameLost = True
 
         if not gameEnded:
+            # TODO: work out why the letterCSS doesn't display.
             if not st.session_state.get("solve_letter_df").equals(gen_blank_df_solve("letterGrid")):
                 st.write("Likely letter, (% times letter appears in remaining words):")
                 likely_letters = AgGrid(
@@ -664,10 +632,3 @@ def show_solve(wordList):
                 if tryAgain:
                     reset_solve()
                     st.experimental_rerun()
-
-                if tryAgain:
-                    reset_solve()
-                    st.experimental_rerun()
-
-
-
