@@ -1,4 +1,4 @@
-# wordle-hint-helper
+# Streamlit Wordle Solver
 A demo project to show off control flow features in streamlit and pay tribute to one of my favourite word games.
 
 (PS. I used an old dictionary file I had on my hard drive, apologies in advance if some of the words are a little archaic - there's quite a few...)
