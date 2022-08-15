@@ -22,3 +22,6 @@ Just want to see the solving algorithm in action?
 Either enter a 5 letter word or choose one from the dictionary, and the algorithm will try to get it in in 6 guesses!
 
 It shows you the best letters to choose for each position, and works out the word that has the most of those letters to choose next.
+
+
+Photo by [https://unsplash.com/@druemdach](Nils Huenerfuerst)
